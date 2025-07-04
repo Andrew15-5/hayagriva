@@ -13,7 +13,7 @@ use common::{ensure_repo, iter_files_with_name, CACHE_PATH};
 
 use citationberg::json as csl_json;
 use hayagriva::archive::{locales, ArchivedStyle};
-use hayagriva::io::from_biblatex_str;
+use hayagriva::io::{from_biblatex_str, from_yaml_str};
 use hayagriva::{
     BibliographyDriver, BibliographyRequest, CitationItem, CitationRequest, CitePurpose,
     Entry, LocatorPayload, SpecificLocator,
@@ -995,4 +995,63 @@ fn no_author() {
         .write_buf(&mut buf, hayagriva::BufWriteFormat::Plain)
         .unwrap();
     assert_eq!(buf, "(Definition and Objectives of Systems Development, 2016)");
+}
+
+#[test]
+fn disambiguation() {
+    let style = ArchivedStyle::by_name("apa").unwrap().get();
+    let locales = locales();
+    let Style::Independent(style) = style else {
+        panic!("test has dependent style");
+    };
+
+    let lib = from_yaml_str(
+        "
+        key3:
+          type: misc
+          author: Author
+          title: Title 3
+          date: 2025-01-01
+        key2:
+          type: misc
+          author: Author
+          title: Title 2
+          date: 2025-01-01
+        key1:
+          type: misc
+          author: Author
+          title: Title 1
+          date: 2025-01-01
+    ",
+    )
+    .unwrap();
+
+    let mut driver = BibliographyDriver::new();
+    driver.citation(CitationRequest::from_items(
+        lib.iter().map(CitationItem::with_entry).collect(),
+        &style,
+        &locales,
+    ));
+
+    let rendered = driver.finish(BibliographyRequest::new(&style, None, &locales));
+
+    let expected_bibliography_items = vec![
+        "Author. (2025a, January 1). Title 1.",
+        "Author. (2025b, January 1). Title 2.",
+        "Author. (2025c, January 1). Title 3.",
+    ];
+    rendered
+        .bibliography
+        .as_ref()
+        .unwrap()
+        .items
+        .iter()
+        .zip(expected_bibliography_items)
+        .for_each(|(item, expected)| {
+            let mut buf = String::new();
+            item.content
+                .write_buf(&mut buf, hayagriva::BufWriteFormat::Plain)
+                .unwrap();
+            assert_eq!(buf, expected);
+        })
 }
