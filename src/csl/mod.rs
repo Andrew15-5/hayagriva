@@ -85,7 +85,7 @@ impl<'a, T: EntryLike> BibliographyDriver<'a, T> {
     /// Create a new citation with the given items.
     pub fn citation(&mut self, mut req: CitationRequest<'a, T>) {
         for (i, item) in req.items.iter_mut().enumerate() {
-            item.initial_idx = i;
+            item.initial_idx = i; // Initial index for unsorted entries.
         }
         self.citations.push(req);
     }
@@ -96,7 +96,7 @@ impl<T: EntryLike + Hash + PartialEq + Eq + Debug> BibliographyDriver<'_, T> {
     /// Render the bibliography.
     pub fn finish(mut self, request: BibliographyRequest<'_>) -> Rendered {
         // 1.  Assign citation numbers by bibliography ordering or by citation
-        //     order and render them a first time without their locators.
+        //     order and render them first time without their locators.
         let bib_style = request.style();
 
         // Only remember each entry once, even if it is cited multiple times.
@@ -109,13 +109,21 @@ impl<T: EntryLike + Hash + PartialEq + Eq + Debug> BibliographyDriver<'_, T> {
 
         let mut entries: Vec<_> =
             entry_set.into_iter().map(CitationItem::with_entry).collect();
+        // println!("{:?}", bib_style.csl.bibliography.as_ref().and_then(|b| b.sort.as_ref().and_then(|x| Some(x.keys.clone()))));
+        // Unsorted entries from YAML source.
         bib_style.sort(
             &mut entries,
             bib_style.csl.bibliography.as_ref().and_then(|b| b.sort.as_ref()),
             request.locale.as_ref(),
             |_| 0,
         );
+        // Correctly sorted entries (initial_idx == 0)
+        // dbg!(&entries);
+
+        // Get citation item index from sorted entries.
         let citation_number = |item: &T| {
+            // dbg!(item.key());
+            // dbg!(entries.iter().position(|e| e.entry == item));
             entries.iter().position(|e| e.entry == item).expect("entry not found")
         };
 
@@ -123,21 +131,35 @@ impl<T: EntryLike + Hash + PartialEq + Eq + Debug> BibliographyDriver<'_, T> {
         let mut res: Vec<SpeculativeCiteRender<T>> = Vec::new();
         let mut last_cite: Option<&CitationItem<T>> = None;
 
+        // `citation`'s items have initial_idx == initial index in unsorted entries.
         for citation in &mut self.citations {
+            // Wrong order (title 1 is last; same as in YAML; initial_idx 0, 1, 2)
+            // dbg!(&citation.items);
+            // This has different keys, no title sort, therefore ordering is always `Equal`.
             let style = citation.style();
+            // The sorting is different for APA bibliography/citation items?
+            // dbg!(&style.csl.info.id);
+            // dbg!(&bib_style.csl.info.id);
 
+            // dbg!("interesting part");
+            // The citation.items are sorted, using initial (different) indexes.
             style.sort(
                 &mut citation.items,
-                style.csl.citation.sort.as_ref(),
+                // style.csl.citation.sort.as_ref(),
+                bib_style.csl.bibliography.as_ref().and_then(|b| b.sort.as_ref()),
                 citation.locale.as_ref(),
                 citation_number,
             );
+            // Wrong sorting (title 1 is last)
+            // dbg!("end of interesting part");
 
+            // The items are sorted, using initial (different) indexes.
             let items = &citation.items;
             let mut renders: Vec<SpeculativeItemRender<'_, T>> = Vec::new();
 
             for item in items.iter() {
                 let entry = &item.entry;
+                // dbg!(entry);
 
                 let is_near_note = citation.note_number.is_some_and(|_| {
                     res.iter()
@@ -213,6 +235,7 @@ impl<T: EntryLike + Hash + PartialEq + Eq + Debug> BibliographyDriver<'_, T> {
         //
         // If we have set the disambiguation state for an item, we need to set
         // the same state for all entries referencing that item.
+        // Why 16?
         for _ in 0..16 {
             let ambiguous = find_ambiguous_sets(&res);
             if ambiguous.is_empty() {
@@ -226,6 +249,7 @@ impl<T: EntryLike + Hash + PartialEq + Eq + Debug> BibliographyDriver<'_, T> {
                 map.entry(entry)
                     .and_modify(|e| *e = e.clone().max(state.clone()))
                     .or_insert(state);
+                // println!("{:?}", map);
             };
 
             for group in ambiguous.iter() {
@@ -508,6 +532,8 @@ impl<T: EntryLike + Hash + PartialEq + Eq + Debug> BibliographyDriver<'_, T> {
         } else {
             None
         };
+
+        println!("{:?}", bib_render);
 
         Rendered {
             bibliography: bib_render,
@@ -802,6 +828,7 @@ fn disambiguate_year_suffix<F, T>(
                 .disambiguation
                 .may_disambiguate_with_year_suffix()
     }) {
+        // Ended here
         let mut entries = Vec::new();
         for &(cite_idx, item_idx) in group.iter() {
             let item = &renders[cite_idx].items[item_idx];
@@ -2022,6 +2049,7 @@ impl WritingContext {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Context<'a, T: EntryLike> {
     instance: InstanceContext<'a, T>,
     style: &'a StyleContext<'a>,
@@ -2690,6 +2718,7 @@ impl<'a, T: EntryLike> Context<'a, T> {
         }
 
         self.writing.prepare_variable_query(variable)?;
+        // println!("{:?}, {:?}", form, variable);
         let res = self.instance.resolve_standard_variable(form, variable);
 
         res

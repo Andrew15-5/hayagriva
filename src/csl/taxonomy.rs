@@ -93,6 +93,7 @@ impl<'a, T: EntryLike> InstanceContext<'a, T> {
                 if let DisambiguateState::YearSuffix(s) =
                     self.cite_props.speculative.disambiguation
                 {
+                    // u8 to letter
                     Some(Cow::Owned(StringChunk::normal(letter(s)).into()))
                 } else {
                     None

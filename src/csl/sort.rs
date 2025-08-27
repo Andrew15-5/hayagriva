@@ -132,6 +132,10 @@ impl StyleContext<'_> {
 
                 let a_rendered = render(a, a_idx);
                 let b_rendered = render(b, b_idx);
+                // dbg!(&a_rendered);
+                // dbg!(&b_rendered);
+                // Dates are being compared as strings 20250101.
+                // What will happen if the year is not 4 digits?
 
                 a_rendered.cmp(&b_rendered)
             }
@@ -156,6 +160,9 @@ impl StyleContext<'_> {
             cites.sort_by(|a, b| {
                 let mut ordering = Ordering::Equal;
                 for key in &sort.keys {
+                    // dbg!(key);
+                    // dbg!(a.entry.key());
+                    // dbg!(b.entry.key());
                     ordering = self.cmp_entries(
                         a,
                         citation_number(a.entry),
@@ -164,6 +171,7 @@ impl StyleContext<'_> {
                         key,
                         term_locale,
                     );
+                    // dbg!(ordering);
                     if ordering != Ordering::Equal {
                         break;
                     }

@@ -37,6 +37,8 @@ pub(crate) trait RenderCsl {
 
 impl RenderCsl for citationberg::Text {
     fn render<T: EntryLike>(&self, ctx: &mut Context<T>) {
+        // println!("{:?}\n", self.target);
+        // println!("{:?}\n", ctx.instance.kind);
         let Some(target) = ResolvedTextTarget::compute(self, ctx) else { return };
         let depth = ctx.push_elem(self.formatting);
 
@@ -60,6 +62,7 @@ impl RenderCsl for citationberg::Text {
         ctx.may_strip_periods(self.strip_periods);
         let cidx = ctx.push_case(self.text_case);
 
+        // println!("{:?}\n", target);
         match target {
             ResolvedTextTarget::StandardVariable(var, val) => match var {
                 StandardVariable::URL => {
@@ -108,6 +111,7 @@ impl RenderCsl for citationberg::Text {
             ResolvedTextTarget::Term(s) => ctx.push_str(s),
             ResolvedTextTarget::Value(val) => ctx.push_str(val),
         }
+        // println!("{:?}\n", ctx.writing.elem_stack.last());
 
         ctx.pop_case(cidx);
         ctx.stop_stripping_periods();
@@ -208,6 +212,7 @@ impl RenderCsl for citationberg::Text {
     }
 }
 
+#[derive(Debug)]
 enum ResolvedTextTarget<'a, 'b> {
     StandardVariable(StandardVariable, Cow<'a, ChunkedString>),
     NumberVariable(NumberVariable, NumberVariableResult<'a>),
@@ -1223,7 +1228,7 @@ impl RenderCsl for citationberg::Group {
 impl RenderCsl for citationberg::LayoutRenderingElement {
     fn render<T: EntryLike>(&self, ctx: &mut Context<T>) {
         match self {
-            citationberg::LayoutRenderingElement::Text(text) => text.render(ctx),
+            citationberg::LayoutRenderingElement::Text(text) => text.render(ctx), // text (year index)
             citationberg::LayoutRenderingElement::Number(num) => num.render(ctx),
             citationberg::LayoutRenderingElement::Label(label) => label.render(ctx),
             citationberg::LayoutRenderingElement::Date(date) => date.render(ctx),
